@@ -13,12 +13,13 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
-import org.springframework.security.web.server.SecurityWebFiltersOrder;
-
 import org.springframework.security.web.server.authentication.AuthenticationWebFilter;
 import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
@@ -42,51 +43,65 @@ public class SecurityConfig {
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         return http
-            .csrf(ServerHttpSecurity.CsrfSpec::disable)
-            .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
-            .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
-            .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint((exchange, ex) -> {
-                    var response = exchange.getResponse();
-                    response.setStatusCode(HttpStatus.UNAUTHORIZED);
-                    response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-                    String body = String.format("{\"error\":\"Unauthorized\",\"message\":\"%s\",\"timestamp\":\"%s\"}",
-                            ex.getMessage(), java.time.Instant.now());
-                    return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
-                })
-                .accessDeniedHandler((exchange, denied) -> {
-                    var response = exchange.getResponse();
-                    response.setStatusCode(HttpStatus.FORBIDDEN);
-                    response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-                    String body = String.format("{\"error\":\"Access Denied\",\"message\":\"%s\",\"timestamp\":\"%s\"}",
-                            denied.getMessage(), java.time.Instant.now());
-                    return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
-                })
-            )
-            .authorizeExchange(exchanges -> exchanges
-                .pathMatchers(HttpMethod.OPTIONS).permitAll()
-                .pathMatchers("/api/auth/**", "/api/public/**", "/actuator/health").permitAll()
-                .pathMatchers("/api/admin/**").access(customAuthorizationManager)
-                .pathMatchers("/api/user/{id}/**").access(resourceBasedAuthorizationManager)
-                .pathMatchers("/api/user/**").hasAnyRole("USER","ADMIN")
-                .pathMatchers("/api/special/**").access((authentication, context) ->
-                    authentication.map(auth -> {
-                        boolean has = auth.getAuthorities().stream()
-                                .anyMatch(a -> a.getAuthority().equals("SCOPE_special"));
-                        return new AuthorizationDecision(has);
-                    }).defaultIfEmpty(new AuthorizationDecision(false)))
-                .anyExchange().authenticated()
-            )
-            .headers(h -> h
-                .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'"))
-            )
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
+                .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((exchange, ex) -> {
+                            var response = exchange.getResponse();
+                            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+                            response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                            String body = String.format("{\"error\":\"Unauthorized\",\"message\":\"%s\",\"timestamp\":\"%s\"}",
+                                    ex.getMessage(), java.time.Instant.now());
+                            return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
+                        })
+                        .accessDeniedHandler((exchange, denied) -> {
+                            var response = exchange.getResponse();
+                            response.setStatusCode(HttpStatus.FORBIDDEN);
+                            response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                            String body = String.format("{\"error\":\"Access Denied\",\"message\":\"%s\",\"timestamp\":\"%s\"}",
+                                    denied.getMessage(), java.time.Instant.now());
+                            return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
+                        })
+                )
+                .authorizeExchange(exchanges -> exchanges
+                        // Public
+                        .pathMatchers(HttpMethod.OPTIONS).permitAll()
+                        .pathMatchers("/api/auth/**", "/api/public/**", "/actuator/health").permitAll()
+
+                        // Admin
+                        .pathMatchers("/api/admin/**").access(customAuthorizationManager)
+
+                        // User: put the specific route BEFORE the {id} rule
+                        .pathMatchers("/api/user/profile").hasAnyRole("USER","ADMIN")
+
+                        // Resource-based: only match numeric IDs so it won't grab "profile"
+                        .pathMatchers("/api/user/{id:\\d+}/**").access(resourceBasedAuthorizationManager)
+
+                        // Fallback for any other /api/user/** endpoints
+                        .pathMatchers("/api/user/**").hasAnyRole("USER","ADMIN")
+
+                        // Example of inline rule you had
+                        .pathMatchers("/api/special/**").access((authentication, context) ->
+                                authentication.map(auth -> {
+                                    boolean has = auth.getAuthorities().stream()
+                                            .anyMatch(a -> a.getAuthority().equals("SCOPE_special"));
+                                    return new AuthorizationDecision(has);
+                                }).defaultIfEmpty(new AuthorizationDecision(false))
+                        )
+
+                        .anyExchange().authenticated()
+                )
+                .headers(h -> h
+                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'"))
+                )
                 .addFilterAt(
                         jwtAuthenticationFilter(),
-                        org.springframework.security.web.server.SecurityWebFiltersOrder.AUTHENTICATION
+                        SecurityWebFiltersOrder.AUTHENTICATION
                 )
-            .build();
+                .build();
     }
 
     @Bean
@@ -104,7 +119,8 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+        // Default is bcrypt; understands {bcrypt} prefix
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 
     @Bean

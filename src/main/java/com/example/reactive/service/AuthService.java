@@ -5,6 +5,7 @@ import com.example.reactive.model.SignupRequest;
 import com.example.reactive.model.User;
 import com.example.reactive.repository.UserRepository;
 import com.example.reactive.security.JwtService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,9 +23,26 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
+    @PostConstruct
+    void logEncoder() {
+        System.out.println("Using PasswordEncoder: " + passwordEncoder.getClass().getName());
+    }
+
+    @PostConstruct
+    void printAdminBcrypt() {
+        System.out.println("bcrypt of 'password' for this app: " + passwordEncoder.encode("password"));
+    }
     public Mono<JwtResponse> login(String username, String rawPassword) {
         return userRepository.findByUsername(username)
-            .flatMap(user -> Mono.fromCallable(() -> passwordEncoder.matches(rawPassword, user.getPassword()))
+                .flatMap(user -> Mono.fromCallable(() -> {
+                            boolean ok = passwordEncoder.matches(rawPassword, user.getPassword());
+                            if (!ok) {
+                                // TEMP LOG so you can see why
+                                System.out.println("LOGIN FAIL for " + username + " - storedHash=" + user.getPassword());
+                            }
+                            return ok;
+                        })
+//            .flatMap(user -> Mono.fromCallable(() -> passwordEncoder.matches(rawPassword, user.getPassword()))
                 .subscribeOn(Schedulers.boundedElastic())
                 .filter(Boolean::booleanValue)
                 .switchIfEmpty(Mono.error(new RuntimeException("Invalid credentials")))

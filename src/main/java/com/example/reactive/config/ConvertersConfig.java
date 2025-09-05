@@ -3,8 +3,8 @@ package com.example.reactive.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.data.convert.CustomConversions.StoreConversions;
 import org.springframework.data.convert.ReadingConverter;
-import org.springframework.data.convert.StoreConversions;
 import org.springframework.data.convert.WritingConverter;
 import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
 

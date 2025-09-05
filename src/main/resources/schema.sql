@@ -12,3 +12,11 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP,
   last_login_at TIMESTAMP
 );
+
+
+MERGE INTO users (username, email, password, roles,
+    enabled, account_non_expired, account_non_locked, credentials_non_expired)
+    KEY(username)
+    VALUES ('admin','admin@example.com',
+    '{bcrypt}$2a$10$t93m62qD4RKlmudyRtpZPe6M6dYEImWxrf7iQnWokT7uDQoZuK7X2', -- "password"
+    'ADMIN,USER', true, true, true, true);

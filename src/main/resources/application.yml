@@ -1,17 +1,17 @@
 spring:
   application:
     name: reactive-security-demo
-  r2dbc:
-    url: r2dbc:h2:mem:///testdb
-    username: sa
-    password:
-    pool:
-      enabled: true
-      initial-size: 10
-      max-size: 20
-      max-idle-time: 30m
-      max-acquire-time: 2s
-      validation-query: SELECT 1
+#  r2dbc:
+#    url: r2dbc:h2:mem:///testdb
+#    username: sa
+#    password:
+#    pool:
+#      enabled: true
+#      initial-size: 10
+#      max-size: 20
+#      max-idle-time: 30m
+#      max-acquire-time: 2s
+#      validation-query: SELECT 1
 
 jwt:
   secret: ${JWT_SECRET:mySecretKeyThatShouldBeAtLeast256BitsLongForHS256AlgorithmSecurityAndShouldBeStoredSecurely}

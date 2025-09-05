@@ -1,0 +1,29 @@
+http://localhost:8080/api/auth/signup
+{"username":"alice","email":"alice@example.com","password":"Secret123!"}
+
+201 Created
+{
+    "id": 2,
+    "username": "alice",
+    "email": "alice@example.com",
+    "roles": [
+        "USER"
+    ],
+    "enabled": true,
+    "accountNonExpired": true,
+    "accountNonLocked": true,
+    "credentialsNonExpired": true,
+    "createdAt": null,
+    "updatedAt": null,
+    "lastLoginAt": null
+}
+
+
+http://localhost:8080/api/auth/login
+{"username":"alice","password":"Secret123!"}
+200 OK
+{
+    "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSIsInR5cGUiOiJhY2Nlc3MiLCJyb2xlcyI6WyJST0xFX1VTRVIiXSwiaXNzIjoicmVhY3RpdmUtc2VjdXJpdHktZGVtbyIsImlhdCI6MTc1NzA0NzAxOSwiZXhwIjoxNzU3MTMzNDE5fQ.VZU6Rpsk3x9xuv1-QiRpobidIfiyrf6a0H7RuMXZZZA",
+    "type": "Bearer",
+    "username": "alice"
+}
